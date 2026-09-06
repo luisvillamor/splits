@@ -1,0 +1,16 @@
+{
+  "name": "splits.",
+  "short_name": "splits.",
+  "description": "Collaborative expense splitting for friend groups.",
+  "start_url": "/dashboard",
+  "display": "standalone",
+  "background_color": "#dc1f2e",
+  "theme_color": "#dc1f2e",
+  "icons": [
+    {
+      "src": "/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml"
+    }
+  ]
+}

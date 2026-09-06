@@ -1,0 +1,88 @@
+@import "tailwindcss";
+
+:root {
+  --splits-red: #c32a2a;
+  --splits-red-dark: #a82222;
+  --splits-red-deep: #8f1c1c;
+  --splits-soft: #fff1f2;
+  --splits-ink: #1a1a1a;
+  --splits-muted: #8a8a8a;
+  --splits-line: #ececec;
+  --splits-card: #ffffff;
+}
+
+@theme inline {
+  --color-splits-red: var(--splits-red);
+  --color-splits-red-dark: var(--splits-red-dark);
+  --color-splits-red-deep: var(--splits-red-deep);
+  --color-splits-soft: var(--splits-soft);
+  --color-splits-ink: var(--splits-ink);
+  --color-splits-muted: var(--splits-muted);
+  --color-splits-line: var(--splits-line);
+  --color-background: #ffffff;
+  --color-foreground: var(--splits-ink);
+  --font-sans: var(--font-inter);
+}
+
+* {
+  -webkit-tap-highlight-color: transparent;
+}
+
+html,
+body {
+  min-height: 100%;
+  background: #ffffff;
+  color: var(--splits-ink);
+}
+
+body {
+  font-family: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
+  text-rendering: optimizeLegibility;
+}
+
+button,
+input,
+textarea,
+select {
+  font: inherit;
+}
+
+:focus-visible {
+  outline: 2px solid var(--splits-red);
+  outline-offset: 3px;
+}
+
+::selection {
+  background: #ffd6da;
+}
+
+@keyframes rise {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-rise {
+  animation: rise 0.45s ease both;
+}
+
+@keyframes pulse-soft {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.45;
+  }
+}
+
+.skeleton {
+  background: linear-gradient(90deg, #f3f3f3, #ececec, #f3f3f3);
+  background-size: 200% 100%;
+  animation: pulse-soft 1.4s ease-in-out infinite;
+}
