@@ -1,17 +1,33 @@
 import { z } from "zod";
 
-export const signUpSchema = z.object({
-  fullName: z.string().trim().min(1).max(80),
-  email: z.email("Enter a valid email address."),
-  password: z
-    .string()
-    .min(8, "Use at least 8 characters.")
-    .regex(/[A-Za-z]/, "Include at least one letter.")
-    .regex(/[0-9]/, "Include at least one number."),
-});
+export const usernameSchema = z
+  .string()
+  .trim()
+  .min(2, "Username must be at least 2 characters.")
+  .max(40, "Keep your username under 40 characters.")
+  .regex(
+    /^[A-Za-z0-9_]+(?: [A-Za-z0-9_]+)*$/,
+    "Use letters, numbers, spaces, or underscores.",
+  );
+
+export const signUpSchema = z
+  .object({
+    username: usernameSchema,
+    email: z.email("Enter a valid email address."),
+    password: z
+      .string()
+      .min(8, "Use at least 8 characters.")
+      .regex(/[A-Za-z]/, "Include at least one letter.")
+      .regex(/[0-9]/, "Include at least one number."),
+    confirmPassword: z.string(),
+  })
+  .refine((value) => value.password === value.confirmPassword, {
+    message: "Passwords do not match.",
+    path: ["confirmPassword"],
+  });
 
 export const signInSchema = z.object({
-  email: z.email("Enter a valid email address."),
+  identifier: z.string().trim().min(1, "Enter your email or username."),
   password: z.string().min(1, "Enter your password."),
 });
 

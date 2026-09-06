@@ -11,13 +11,6 @@ import { friendlyError } from "@/lib/errors";
 import { createClient } from "@/lib/supabase/client";
 import { signUpSchema } from "@/lib/validation";
 
-function nameFromEmail(email: string) {
-  const local = email.split("@")[0] ?? "Friend";
-  const spaced = local.replace(/[._-]+/g, " ").trim();
-  if (!spaced) return "Friend";
-  return spaced.replace(/\b\w/g, (letter) => letter.toUpperCase());
-}
-
 export function SignUpForm() {
   const router = useRouter();
   const [error, setError] = useState<string | null>(null);
@@ -28,12 +21,11 @@ export function SignUpForm() {
   async function onSubmit(formData: FormData) {
     setError(null);
     setNotice(null);
-    const email = String(formData.get("email") ?? "");
-    const password = String(formData.get("password") ?? "");
     const parsed = signUpSchema.safeParse({
-      email,
-      password,
-      fullName: nameFromEmail(email),
+      username: String(formData.get("username") ?? ""),
+      email: String(formData.get("email") ?? ""),
+      password: String(formData.get("password") ?? ""),
+      confirmPassword: String(formData.get("confirmPassword") ?? ""),
     });
     if (!parsed.success) {
       const nextErrors: Record<string, string> = {};
@@ -51,7 +43,7 @@ export function SignUpForm() {
         email: parsed.data.email,
         password: parsed.data.password,
         options: {
-          data: { full_name: parsed.data.fullName },
+          data: { full_name: parsed.data.username },
           emailRedirectTo: `${window.location.origin}/auth/callback`,
         },
       });
@@ -71,7 +63,15 @@ export function SignUpForm() {
 
   return (
     <AuthShell title="Sign Up">
-      <form action={onSubmit} className="space-y-5">
+      <form action={onSubmit} className="space-y-4">
+        <TextField
+          underline
+          label="Username"
+          name="username"
+          autoComplete="username"
+          required
+          error={fieldErrors.username}
+        />
         <TextField
           underline
           label="Email"
@@ -90,14 +90,23 @@ export function SignUpForm() {
           required
           error={fieldErrors.password}
         />
+        <TextField
+          underline
+          label="Confirm password"
+          name="confirmPassword"
+          type="password"
+          autoComplete="new-password"
+          required
+          error={fieldErrors.confirmPassword}
+        />
         {error ? <p className="text-sm text-splits-red">{error}</p> : null}
         {notice ? <p className="text-sm text-splits-ink">{notice}</p> : null}
         <Button type="submit" disabled={loading}>
           {loading ? "Creating account…" : "Sign Up"}
         </Button>
       </form>
-      <p className="mt-6 text-center text-[13px] font-medium text-splits-red">
-        Dont have an Account?{" "}
+      <p className="mt-5 text-center text-[13px] font-medium text-splits-red">
+        Already have an account?{" "}
         <Link href="/sign-in" className="font-semibold">
           Sign In!
         </Link>

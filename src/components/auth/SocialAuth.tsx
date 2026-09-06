@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { GoogleIcon, WhatsAppIcon } from "@/components/auth/GoogleIcon";
+import { GoogleIcon } from "@/components/auth/GoogleIcon";
 import { createClient } from "@/lib/supabase/client";
 import { friendlyError } from "@/lib/errors";
 
@@ -38,7 +38,7 @@ export function SocialAuth({
         <span className="text-sm">or</span>
         <span className="h-px flex-1 border-t border-dashed border-[#cfcfcf]" />
       </div>
-      <div className="mt-5 flex items-center justify-center gap-8">
+      <div className="mt-5 flex justify-center">
         <button
           type="button"
           onClick={onGoogle}
@@ -47,14 +47,6 @@ export function SocialAuth({
           aria-label="Continue with Google"
         >
           <GoogleIcon />
-        </button>
-        <button
-          type="button"
-          className="flex h-11 w-11 items-center justify-center text-black"
-          aria-label="WhatsApp sign-in is coming soon"
-          onClick={() => onError("WhatsApp sign-in is coming soon.")}
-        >
-          <WhatsAppIcon />
         </button>
       </div>
     </div>

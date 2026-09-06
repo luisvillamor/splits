@@ -13,7 +13,7 @@ export function AuthShell({
   return (
     <div className="min-h-dvh bg-white">
       <main className="relative mx-auto flex min-h-dvh w-full max-w-[430px] flex-col overflow-hidden bg-white">
-        <div className="relative h-[36dvh] min-h-[220px] max-h-[320px] shrink-0 bg-splits-red">
+        <div className="relative h-[32dvh] min-h-[200px] max-h-[280px] shrink-0 bg-splits-red">
           <Logo
             light
             className="absolute right-3 top-[40%] text-[72px] leading-none"

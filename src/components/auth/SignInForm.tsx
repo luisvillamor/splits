@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useState } from "react";
+import { resolveLoginEmailAction } from "@/actions/profile";
 import { AuthShell } from "@/components/auth/AuthShell";
 import { SocialAuth } from "@/components/auth/SocialAuth";
 import { Button } from "@/components/ui/Button";
@@ -22,7 +23,7 @@ export function SignInForm() {
   async function onSubmit(formData: FormData) {
     setError(null);
     const parsed = signInSchema.safeParse({
-      email: String(formData.get("email") ?? ""),
+      identifier: String(formData.get("identifier") ?? ""),
       password: String(formData.get("password") ?? ""),
     });
     if (!parsed.success) {
@@ -33,13 +34,21 @@ export function SignInForm() {
     setFieldErrors({});
     setLoading(true);
     try {
+      const resolved = await resolveLoginEmailAction(parsed.data.identifier);
+      if (!resolved.ok) {
+        setError(resolved.error);
+        return;
+      }
       const supabase = createClient();
-      const { error: signInError } = await supabase.auth.signInWithPassword(parsed.data);
+      const { error: signInError } = await supabase.auth.signInWithPassword({
+        email: resolved.data,
+        password: parsed.data.password,
+      });
       if (signInError) throw signInError;
       router.replace(next);
       router.refresh();
     } catch (err) {
-      setError(friendlyError(err, "Email or password is incorrect."));
+      setError(friendlyError(err, "Email/username or password is incorrect."));
     } finally {
       setLoading(false);
     }
@@ -50,12 +59,13 @@ export function SignInForm() {
       <form action={onSubmit} className="space-y-5">
         <TextField
           underline
-          label="Email"
-          name="email"
-          type="email"
-          autoComplete="email"
+          label="Email / username"
+          name="identifier"
+          type="text"
+          autoComplete="username"
+          inputMode="email"
           required
-          error={fieldErrors.email}
+          error={fieldErrors.identifier}
         />
         <div>
           <TextField

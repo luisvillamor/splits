@@ -1,10 +1,10 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname, useRouter } from "next/navigation";
+import { usePathname } from "next/navigation";
 import type { ReactNode } from "react";
 import { Logo } from "@/components/brand/Logo";
-import { createClient } from "@/lib/supabase/client";
+import { Avatar } from "@/components/ui/Avatar";
 
 const nav = [
   { href: "/dashboard", label: "Home", icon: HomeIcon },
@@ -14,21 +14,18 @@ const nav = [
 
 export function AppShell({
   name,
+  userId,
+  avatarUrl,
   children,
 }: {
   name: string;
+  userId: string;
+  avatarUrl?: string | null;
   children: ReactNode;
 }) {
   const pathname = usePathname();
-  const router = useRouter();
   const focusMode = pathname.startsWith("/splits/");
-
-  async function signOut() {
-    const supabase = createClient();
-    await supabase.auth.signOut();
-    router.replace("/sign-in");
-    router.refresh();
-  }
+  const onProfile = pathname.startsWith("/profile");
 
   return (
     <div className="min-h-dvh bg-[#fff8f8]">
@@ -53,32 +50,36 @@ export function AppShell({
               );
             })}
           </nav>
-          <div className="mt-auto">
-            <p className="truncate text-sm font-medium">{name}</p>
-            <button
-              type="button"
-              onClick={signOut}
-              className="mt-2 text-sm font-semibold text-splits-red"
-            >
-              Sign out
-            </button>
-          </div>
+          <Link
+            href="/profile"
+            className={`mt-auto flex items-center gap-3 rounded-2xl p-2 ${
+              onProfile ? "bg-splits-soft" : "hover:bg-black/5"
+            }`}
+          >
+            <Avatar name={name} id={userId} src={avatarUrl} />
+            <span className="min-w-0">
+              <span className="block truncate text-sm font-semibold">{name}</span>
+              <span className="text-xs font-medium text-splits-muted">Profile</span>
+            </span>
+          </Link>
         </aside>
         <div className="flex min-w-0 flex-1 flex-col">
-          <header className={`flex items-center justify-between px-4 pb-2 pt-[max(1rem,env(safe-area-inset-top))] md:hidden ${focusMode ? "hidden" : ""}`}>
+          <header
+            className={`flex items-center justify-between px-4 pb-2 pt-[max(1rem,env(safe-area-inset-top))] md:hidden ${focusMode ? "hidden" : ""}`}
+          >
             <Logo className="text-xl" />
-            <button
-              type="button"
-              onClick={signOut}
-              className="text-sm font-semibold text-splits-red"
-            >
-              Sign out
-            </button>
+            <Link href="/profile" aria-label="Open profile" className="rounded-full">
+              <Avatar name={name} id={userId} src={avatarUrl} size="sm" />
+            </Link>
           </header>
-          <main className={`flex-1 ${focusMode ? "px-0 pb-0 pt-0 md:px-8 md:pb-10 md:pt-8" : "px-4 pb-28 pt-2 md:px-8 md:pb-10 md:pt-8"}`}>
+          <main
+            className={`flex-1 ${focusMode ? "px-0 pb-0 pt-0 md:px-8 md:pb-10 md:pt-8" : "px-4 pb-28 pt-2 md:px-8 md:pb-10 md:pt-8"}`}
+          >
             {children}
           </main>
-          <nav className={`fixed inset-x-0 bottom-0 z-40 border-t border-splits-line bg-white/95 pb-[env(safe-area-inset-bottom)] backdrop-blur md:hidden ${focusMode ? "hidden" : ""}`}>
+          <nav
+            className={`fixed inset-x-0 bottom-0 z-40 border-t border-splits-line bg-white/95 pb-[env(safe-area-inset-bottom)] backdrop-blur md:hidden ${focusMode ? "hidden" : ""}`}
+          >
             <ul className="mx-auto grid max-w-lg grid-cols-3">
               {nav.map((item) => {
                 const active =

@@ -30,5 +30,13 @@ export default async function AuthenticatedLayout({
   const { user, profile } = await getCurrentProfile();
   if (!user) redirect("/sign-in");
 
-  return <AppShell name={profile?.full_name ?? "Friend"}>{children}</AppShell>;
+  return (
+    <AppShell
+      name={profile?.full_name ?? "Friend"}
+      userId={user.id}
+      avatarUrl={profile?.avatar_url}
+    >
+      {children}
+    </AppShell>
+  );
 }
