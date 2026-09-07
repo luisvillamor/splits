@@ -1,20 +1,26 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useCallback, useMemo, useState } from "react";
 import {
   addExpenseAction,
+  addSplitParticipantsAction,
   deleteExpenseAction,
   deleteFeeAction,
+  deleteSplitAction,
   finalizeSplitAction,
   fetchSplitBundleAction,
   markSettlementPaidAction,
+  removeSplitParticipantAction,
   saveContributionsAction,
   saveFeeAction,
   saveReceiptAction,
+  unfinalizeSplitAction,
   updateExpenseAction,
 } from "@/actions/splits";
 import { getReceiptUrlAction } from "@/actions/receipt";
+import { MemberPicker } from "@/components/groups/MemberPicker";
 import { ExpenseForm } from "@/components/splits/ExpenseForm";
 import { Avatar } from "@/components/ui/Avatar";
 import { Button } from "@/components/ui/Button";
@@ -31,6 +37,14 @@ import { createClient } from "@/lib/supabase/client";
 import type { Expense, SplitBundle } from "@/types/database";
 
 type Tab = "expenses" | "people" | "bill" | "activity";
+type SheetKind =
+  | "add"
+  | "edit"
+  | "finalize"
+  | "unfinalize"
+  | "deleteSplit"
+  | "removeParticipant"
+  | "addParticipants";
 
 export function SplitWorkspace({
   initial,
@@ -39,19 +53,29 @@ export function SplitWorkspace({
   initial: SplitBundle;
   currentUserId: string;
 }) {
+  const router = useRouter();
   const [bundle, setBundle] = useState(initial);
   const [tab, setTab] = useState<Tab>("expenses");
-  const [sheet, setSheet] = useState<"add" | "edit" | "finalize" | null>(null);
+  const [sheet, setSheet] = useState<SheetKind | null>(null);
   const [editing, setEditing] = useState<Expense | null>(null);
+  const [removeUserId, setRemoveUserId] = useState<string | null>(null);
+  const [addIds, setAddIds] = useState<string[]>([]);
   const [message, setMessage] = useState<string | null>(null);
   const [live, setLive] = useState(true);
+  const [busy, setBusy] = useState(false);
   const calc = useMemo(() => calculateBundle(bundle), [bundle]);
   const me = calc.members.find((member) => member.userId === currentUserId);
   const isCreator = bundle.split.creator_id === currentUserId;
   const isOpen = bundle.split.status === "open";
+  const wasReopened =
+    isOpen && bundle.activity.some((item) => item.action === "unfinalized_split");
   const creatorName =
     bundle.participants.find((item) => item.user_id === bundle.split.creator_id)
       ?.profile.full_name ?? "Creator";
+  const removeTarget = bundle.participants.find((item) => item.user_id === removeUserId);
+  const addableMembers = bundle.groupMembers.filter(
+    (member) => !bundle.participants.some((item) => item.user_id === member.user_id),
+  );
 
   const refresh = useCallback(async () => {
     const result = await fetchSplitBundleAction(bundle.split.id);
@@ -123,6 +147,12 @@ export function SplitWorkspace({
         </div>
       </section>
 
+      {wasReopened ? (
+        <p className="mx-4 mt-3 rounded-[20px] bg-splits-soft px-4 py-3 text-sm leading-6 text-splits-red">
+          This Split was reopened. Expenses, shares, and who owes whom can change
+          until it is finalized again.
+        </p>
+      ) : null}
       {bundle.split.status === "finalized" && bundle.split.finalized_at ? (
         <p className="px-5 pt-3 text-sm text-splits-muted">
           🔒 This Split was finalized by {profileName(bundle.split.finalized_by ?? "")} on{" "}
@@ -171,17 +201,31 @@ export function SplitWorkspace({
           <PeopleTab
             bundle={bundle}
             currentUserId={currentUserId}
+            isCreator={isCreator}
+            isOpen={isOpen}
             onRefresh={refresh}
+            onRemove={(userId) => {
+              setRemoveUserId(userId);
+              setSheet("removeParticipant");
+            }}
+            onAddPeople={() => {
+              setAddIds(addableMembers.map((member) => member.user_id));
+              setSheet("addParticipants");
+            }}
+            onDeleteSplit={() => setSheet("deleteSplit")}
+            canAddPeople={addableMembers.length > 0}
           />
         ) : null}
         {tab === "bill" ? (
           <BillTab
+            key={bundle.participants.map((item) => item.user_id).sort().join()}
             bundle={bundle}
             isCreator={isCreator}
             isOpen={isOpen}
             receiptCheck={receiptCheck}
             onRefresh={refresh}
             onFinalize={() => setSheet("finalize")}
+            onUnfinalize={() => setSheet("unfinalize")}
             setMessage={setMessage}
           />
         ) : null}
@@ -284,6 +328,190 @@ export function SplitWorkspace({
           </Button>
         </div>
       </Sheet>
+
+      <Sheet
+        open={sheet === "unfinalize"}
+        title="Reopen this Split?"
+        onClose={() => {
+          if (!busy) setSheet(null);
+        }}
+      >
+        <p className="text-sm leading-6 text-splits-muted">
+          The Split becomes editable again. Existing settlement and payment
+          records from the last finalize will be cleared. Activity history stays,
+          including when it was finalized. Everyone will see that it was reopened
+          and that the numbers may change.
+        </p>
+        <div className="mt-5 grid gap-2">
+          <Button
+            type="button"
+            variant="danger"
+            disabled={busy}
+            onClick={async () => {
+              setBusy(true);
+              const result = await unfinalizeSplitAction(bundle.split.id);
+              setBusy(false);
+              if (!result.ok) {
+                setMessage(result.error);
+                setSheet(null);
+                return;
+              }
+              setSheet(null);
+              await refresh();
+            }}
+          >
+            {busy ? "Reopening…" : "Reopen Split"}
+          </Button>
+          <Button type="button" variant="ghost" disabled={busy} onClick={() => setSheet(null)}>
+            Cancel
+          </Button>
+        </div>
+      </Sheet>
+
+      <Sheet
+        open={sheet === "deleteSplit"}
+        title="Delete this Split?"
+        onClose={() => {
+          if (!busy) setSheet(null);
+        }}
+      >
+        <p className="text-sm leading-6 text-splits-muted">
+          This permanently deletes the session, including expenses, fees, and
+          settlements. The group itself is not deleted.
+        </p>
+        <div className="mt-5 grid gap-2">
+          <Button
+            type="button"
+            variant="danger"
+            disabled={busy}
+            onClick={async () => {
+              setBusy(true);
+              const result = await deleteSplitAction(bundle.split.id);
+              if (!result.ok) {
+                setBusy(false);
+                setMessage(result.error);
+                setSheet(null);
+                return;
+              }
+              router.replace(`/groups/${result.data.groupId}`);
+            }}
+          >
+            {busy ? "Deleting…" : "Delete Split"}
+          </Button>
+          <Button type="button" variant="ghost" disabled={busy} onClick={() => setSheet(null)}>
+            Cancel
+          </Button>
+        </div>
+      </Sheet>
+
+      <Sheet
+        open={sheet === "removeParticipant"}
+        title="Remove from this Split?"
+        onClose={() => {
+          if (!busy) {
+            setSheet(null);
+            setRemoveUserId(null);
+          }
+        }}
+      >
+        <p className="text-sm leading-6 text-splits-muted">
+          {removeTarget?.profile.full_name ?? "This person"} will be removed from
+          this Split only. They stay in {bundle.group.name}. Their assignments on
+          expenses and who-paid amounts for this session will be cleared.
+        </p>
+        <div className="mt-5 grid gap-2">
+          <Button
+            type="button"
+            variant="danger"
+            disabled={busy || !removeUserId}
+            onClick={async () => {
+              if (!removeUserId) return;
+              setBusy(true);
+              const result = await removeSplitParticipantAction(
+                bundle.split.id,
+                removeUserId,
+              );
+              setBusy(false);
+              if (!result.ok) {
+                setMessage(result.error);
+                setSheet(null);
+                return;
+              }
+              setRemoveUserId(null);
+              setSheet(null);
+              await refresh();
+            }}
+          >
+            {busy ? "Removing…" : "Remove from Split"}
+          </Button>
+          <Button
+            type="button"
+            variant="ghost"
+            disabled={busy}
+            onClick={() => {
+              setSheet(null);
+              setRemoveUserId(null);
+            }}
+          >
+            Cancel
+          </Button>
+        </div>
+      </Sheet>
+
+      <Sheet
+        open={sheet === "addParticipants"}
+        title="Add people"
+        onClose={() => {
+          if (!busy) setSheet(null);
+        }}
+      >
+        {addableMembers.length === 0 ? (
+          <p className="text-sm text-splits-muted">Everyone in the group is already in this Split.</p>
+        ) : (
+          <>
+            <p className="mb-3 text-sm text-splits-muted">
+              Only group members can be added. They will be included in shared
+              fees and settlement once you assign expenses.
+            </p>
+            <div className="rounded-[20px] bg-[#fff8f8] p-3">
+              <MemberPicker
+                members={addableMembers.map((member) => ({
+                  userId: member.user_id,
+                  name: member.profile.full_name,
+                  avatarUrl: member.profile.avatar_url,
+                }))}
+                selectedIds={addIds}
+                onChange={setAddIds}
+              />
+            </div>
+            <div className="mt-5 grid gap-2">
+              <Button
+                type="button"
+                disabled={busy || addIds.length === 0}
+                onClick={async () => {
+                  setBusy(true);
+                  const result = await addSplitParticipantsAction(
+                    bundle.split.id,
+                    addIds,
+                  );
+                  setBusy(false);
+                  if (!result.ok) {
+                    setMessage(result.error);
+                    return;
+                  }
+                  setSheet(null);
+                  await refresh();
+                }}
+              >
+                {busy ? "Adding…" : "Add to Split"}
+              </Button>
+              <Button type="button" variant="ghost" disabled={busy} onClick={() => setSheet(null)}>
+                Cancel
+              </Button>
+            </div>
+          </>
+        )}
+      </Sheet>
     </div>
   );
 }
@@ -372,16 +600,78 @@ function ExpensesTab({
 function PeopleTab({
   bundle,
   currentUserId,
+  isCreator,
+  isOpen,
   onRefresh,
+  onRemove,
+  onAddPeople,
+  onDeleteSplit,
+  canAddPeople,
 }: {
   bundle: SplitBundle;
   currentUserId: string;
+  isCreator: boolean;
+  isOpen: boolean;
   onRefresh: () => Promise<void>;
+  onRemove: (userId: string) => void;
+  onAddPeople: () => void;
+  onDeleteSplit: () => void;
+  canAddPeople: boolean;
 }) {
   const calc = calculateBundle(bundle);
 
   return (
     <div className="space-y-4">
+      {isCreator && isOpen ? (
+        <section className="rounded-[24px] bg-white p-4">
+          <h2 className="font-bold">People in this Split</h2>
+          <p className="mt-1 text-sm text-splits-muted">
+            Only these people share expenses, fees, and settlement. Removing
+            someone here does not take them out of the group.
+          </p>
+          <ul className="mt-3 space-y-2">
+            {bundle.participants.map((participant) => {
+              const isOwner = participant.user_id === bundle.split.creator_id;
+              return (
+                <li key={participant.id} className="flex items-center gap-3">
+                  <Avatar
+                    name={participant.profile.full_name}
+                    id={participant.user_id}
+                    src={participant.profile.avatar_url}
+                    size="sm"
+                  />
+                  <span className="min-w-0 flex-1 text-sm font-medium">
+                    {participant.profile.full_name}
+                    {participant.user_id === currentUserId ? " · you" : ""}
+                    {isOwner ? (
+                      <span className="text-splits-muted"> · owner</span>
+                    ) : null}
+                  </span>
+                  {!isOwner ? (
+                    <button
+                      type="button"
+                      className="text-sm font-semibold text-splits-red"
+                      onClick={() => onRemove(participant.user_id)}
+                    >
+                      Remove
+                    </button>
+                  ) : null}
+                </li>
+              );
+            })}
+          </ul>
+          {canAddPeople ? (
+            <Button type="button" variant="secondary" className="mt-4" onClick={onAddPeople}>
+              Add people
+            </Button>
+          ) : (
+            <p className="mt-3 text-sm text-splits-muted">
+              Everyone in the group is already in this Split.
+            </p>
+          )}
+        </section>
+      ) : null}
+
       {bundle.split.status === "finalized" ? (
         <section className="rounded-[24px] bg-white p-4">
           <h2 className="font-bold">Settlement</h2>
@@ -505,6 +795,18 @@ function PeopleTab({
           );
         })}
       </ul>
+
+      {isCreator ? (
+        <section className="rounded-[24px] bg-white p-4">
+          <h2 className="font-bold">Danger zone</h2>
+          <p className="mt-1 text-sm text-splits-muted">
+            Delete this Split session only. The group and its other Splits stay.
+          </p>
+          <Button type="button" variant="danger" className="mt-4" onClick={onDeleteSplit}>
+            Delete Split
+          </Button>
+        </section>
+      ) : null}
     </div>
   );
 }
@@ -516,6 +818,7 @@ function BillTab({
   receiptCheck,
   onRefresh,
   onFinalize,
+  onUnfinalize,
   setMessage,
 }: {
   bundle: SplitBundle;
@@ -524,6 +827,7 @@ function BillTab({
   receiptCheck: ReturnType<typeof checkReceipt> | null;
   onRefresh: () => Promise<void>;
   onFinalize: () => void;
+  onUnfinalize: () => void;
   setMessage: (value: string | null) => void;
 }) {
   const calc = calculateBundle(bundle);
@@ -822,6 +1126,18 @@ function BillTab({
           </ul>
           <Button type="button" className="mt-4" onClick={onFinalize}>
             Finalize Split
+          </Button>
+        </section>
+      ) : isCreator ? (
+        <section className="rounded-[24px] bg-white p-4">
+          <h2 className="font-bold">Reopen Split</h2>
+          <p className="mt-1 text-sm text-splits-muted">
+            Unlock expenses and people so you can fix the bill. Settlement from
+            the last finalize will be cleared, then calculated again when you
+            finalize.
+          </p>
+          <Button type="button" variant="secondary" className="mt-4" onClick={onUnfinalize}>
+            Reopen Split
           </Button>
         </section>
       ) : null}

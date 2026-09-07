@@ -49,6 +49,8 @@ export const splitSchema = z.object({
     .max(80),
   occurredOn: z.string().min(1, "Pick a date."),
   emoji: z.string().min(1).max(8).default("🧾"),
+  participantMode: z.enum(["everyone", "selected"]).default("everyone"),
+  participantIds: z.array(z.string().uuid()).default([]),
 });
 
 export const expenseSchema = z.object({

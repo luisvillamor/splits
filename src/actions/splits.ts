@@ -506,3 +506,180 @@ export async function fetchSplitBundleAction(splitId: string) {
   if (!bundle) return { ok: false as const, error: "Split not found." };
   return { ok: true as const, data: bundle };
 }
+
+function isMissingRpc(error: { code?: string; message?: string } | null) {
+  return (
+    error?.code === "PGRST202" ||
+    (error?.message ?? "").toLowerCase().includes("could not find the function")
+  );
+}
+
+async function detachParticipant(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  splitId: string,
+  userId: string,
+  expenseIds: string[],
+) {
+  if (expenseIds.length) {
+    const { error: expenseError } = await supabase
+      .from("expense_participants")
+      .delete()
+      .in("expense_id", expenseIds)
+      .eq("user_id", userId);
+    if (expenseError) throw expenseError;
+  }
+
+  const { error: contributionError } = await supabase
+    .from("bill_contributions")
+    .delete()
+    .eq("split_id", splitId)
+    .eq("user_id", userId);
+  if (contributionError) throw contributionError;
+
+  const { error: participantError } = await supabase
+    .from("split_participants")
+    .delete()
+    .eq("split_id", splitId)
+    .eq("user_id", userId);
+  if (participantError) throw participantError;
+}
+
+export async function addSplitParticipantsAction(
+  splitId: string,
+  userIds: string[],
+): Promise<ActionResult> {
+  try {
+    const { supabase, user, bundle, isCreator, isOpen } = await loadContext(splitId);
+    if (!isCreator) return { ok: false, error: "Only the Split owner can add people." };
+    if (!isOpen) return { ok: false, error: "This Split is finalized and locked." };
+
+    const groupMemberIds = new Set(bundle.groupMembers.map((member) => member.user_id));
+    const alreadyIn = new Set(bundle.participants.map((item) => item.user_id));
+    const toAdd = Array.from(new Set(userIds)).filter(
+      (id) => groupMemberIds.has(id) && !alreadyIn.has(id),
+    );
+
+    if (toAdd.length === 0) {
+      return { ok: false, error: "Pick someone from this group who is not already in the Split." };
+    }
+
+    const { error } = await supabase.from("split_participants").insert(
+      toAdd.map((userId) => ({
+        split_id: splitId,
+        user_id: userId,
+      })),
+    );
+    if (error) throw error;
+
+    const names = toAdd.map(
+      (id) =>
+        bundle.groupMembers.find((member) => member.user_id === id)?.profile.full_name ??
+        "a member",
+    );
+
+    await supabase.from("activity_logs").insert({
+      split_id: splitId,
+      user_id: user.id,
+      action: "added_participant",
+      entity_type: "participant",
+      new_data: { name: names.join(", "), participantCount: toAdd.length },
+    });
+
+    revalidateSplit(splitId, bundle.group.id);
+    return { ok: true, data: undefined };
+  } catch (error) {
+    return { ok: false, error: friendlyError(error, "Could not add that person.") };
+  }
+}
+
+export async function removeSplitParticipantAction(
+  splitId: string,
+  userId: string,
+): Promise<ActionResult> {
+  try {
+    const { supabase, user, bundle, isCreator, isOpen } = await loadContext(splitId);
+    if (!isCreator) return { ok: false, error: "Only the Split owner can remove people." };
+    if (!isOpen) return { ok: false, error: "This Split is finalized and locked." };
+    if (userId === bundle.split.creator_id) {
+      return { ok: false, error: "The Split owner has to stay in this Split." };
+    }
+    if (!bundle.participants.some((item) => item.user_id === userId)) {
+      return { ok: true, data: undefined };
+    }
+
+    const name =
+      bundle.participants.find((item) => item.user_id === userId)?.profile.full_name ??
+      "a member";
+
+    await detachParticipant(
+      supabase,
+      splitId,
+      userId,
+      bundle.expenses.map((expense) => expense.id),
+    );
+
+    await supabase.from("activity_logs").insert({
+      split_id: splitId,
+      user_id: user.id,
+      action: "removed_participant",
+      entity_type: "participant",
+      new_data: { name },
+    });
+
+    revalidateSplit(splitId, bundle.group.id);
+    return { ok: true, data: undefined };
+  } catch (error) {
+    return { ok: false, error: friendlyError(error, "Could not remove that person.") };
+  }
+}
+
+export async function deleteSplitAction(
+  splitId: string,
+): Promise<ActionResult<{ groupId: string }>> {
+  try {
+    const { supabase, bundle, isCreator } = await loadContext(splitId);
+    if (!isCreator) return { ok: false, error: "Only the Split owner can delete this Split." };
+
+    const groupId = bundle.group.id;
+    const { error } = await supabase.rpc("delete_split", { _split_id: splitId });
+    if (error) {
+      if (isMissingRpc(error)) {
+        return {
+          ok: false,
+          error: "This feature needs a database update. Run the latest SQL in Supabase.",
+        };
+      }
+      throw error;
+    }
+
+    revalidatePath(`/groups/${groupId}`);
+    revalidatePath("/dashboard");
+    return { ok: true, data: { groupId } };
+  } catch (error) {
+    return { ok: false, error: friendlyError(error, "Could not delete this Split.") };
+  }
+}
+
+export async function unfinalizeSplitAction(splitId: string): Promise<ActionResult> {
+  try {
+    const { supabase, bundle, isCreator, isOpen } = await loadContext(splitId);
+    if (!isCreator) return { ok: false, error: "Only the Split owner can reopen this Split." };
+    if (isOpen) return { ok: false, error: "This Split is already open." };
+
+    const { error } = await supabase.rpc("unfinalize_split", { _split_id: splitId });
+    if (error) {
+      if (isMissingRpc(error)) {
+        return {
+          ok: false,
+          error: "This feature needs a database update. Run the latest SQL in Supabase.",
+        };
+      }
+      throw error;
+    }
+
+    revalidateSplit(splitId, bundle.group.id);
+    return { ok: true, data: undefined };
+  } catch (error) {
+    return { ok: false, error: friendlyError(error, "Could not reopen this Split.") };
+  }
+}

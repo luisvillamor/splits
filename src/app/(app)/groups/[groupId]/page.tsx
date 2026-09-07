@@ -1,10 +1,11 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { GroupMembers } from "@/components/groups/GroupMembers";
 import { Avatar } from "@/components/ui/Avatar";
 import { Button } from "@/components/ui/Button";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { InvitePanel } from "@/components/groups/InvitePanel";
-import { getGroup } from "@/lib/data";
+import { getCurrentProfile, getGroup } from "@/lib/data";
 import { formatDate } from "@/lib/format";
 import { formatPeso } from "@/lib/money";
 
@@ -14,10 +15,14 @@ export default async function GroupPage({
   params: Promise<{ groupId: string }>;
 }) {
   const { groupId } = await params;
-  const data = await getGroup(groupId);
-  if (!data) notFound();
+  const [{ user }, data] = await Promise.all([
+    getCurrentProfile(),
+    getGroup(groupId),
+  ]);
+  if (!user || !data) notFound();
 
   const { group, members, splits } = data;
+  const isOwner = group.creator_id === user.id;
   const finalized = splits.filter((split) => split.status === "finalized");
   const totalSpending = finalized.reduce((sum, split) => {
     const snapshot = split.snapshot as { grandTotal?: number } | null;
@@ -44,27 +49,12 @@ export default async function GroupPage({
         <Stat label="Average split" value={formatPeso(average)} />
       </section>
 
-      <section className="rounded-[28px] bg-white p-5">
-        <h2 className="font-bold">Members</h2>
-        <ul className="mt-3 flex flex-wrap gap-3">
-          {members.map((member) => (
-            <li key={member.id} className="flex items-center gap-2">
-              <Avatar
-                name={member.profile.full_name}
-                id={member.user_id}
-                src={member.profile.avatar_url}
-                size="sm"
-              />
-              <span className="text-sm font-medium">
-                {member.profile.full_name}
-                {member.role === "owner" ? (
-                  <span className="ml-1 text-splits-muted">· owner</span>
-                ) : null}
-              </span>
-            </li>
-          ))}
-        </ul>
-      </section>
+      <GroupMembers
+        groupId={group.id}
+        groupName={group.name}
+        isOwner={isOwner}
+        members={members}
+      />
 
       <InvitePanel code={group.invite_code} groupName={group.name} />
 

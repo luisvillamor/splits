@@ -142,6 +142,7 @@ export async function getSplitBundle(splitId: string): Promise<SplitBundle | nul
 
   const [
     groupRes,
+    membersRes,
     participantsRes,
     expensesRes,
     feesRes,
@@ -151,6 +152,11 @@ export async function getSplitBundle(splitId: string): Promise<SplitBundle | nul
     activityRes,
   ] = await Promise.all([
     supabase.from("groups").select("*").eq("id", split.group_id).single(),
+    supabase
+      .from("group_members")
+      .select("*, profiles(*)")
+      .eq("group_id", split.group_id)
+      .order("joined_at"),
     supabase
       .from("split_participants")
       .select("*, profiles(*)")
@@ -192,6 +198,14 @@ export async function getSplitBundle(splitId: string): Promise<SplitBundle | nul
     split: split as SplitSession,
     group: groupRes.data as Group,
     participants,
+    groupMembers: (membersRes.data ?? []).map((member) => ({
+      id: member.id as string,
+      group_id: member.group_id as string,
+      user_id: member.user_id as string,
+      role: member.role as GroupMember["role"],
+      joined_at: member.joined_at as string,
+      profile: asOne(member.profiles as Profile | Profile[] | null) as Profile,
+    })),
     expenses,
     fees: (feesRes.data ?? []).map((fee) => ({
       ...(fee as Fee),

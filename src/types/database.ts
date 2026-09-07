@@ -140,6 +140,7 @@ export interface SplitBundle {
   split: SplitSession;
   group: Group;
   participants: Array<SplitParticipant & { profile: Profile }>;
+  groupMembers: Array<GroupMember & { profile: Profile }>;
   expenses: Array<Expense & { participants: ExpenseParticipant[] }>;
   fees: Fee[];
   receipt: Receipt | null;
