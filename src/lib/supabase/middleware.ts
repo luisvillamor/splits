@@ -42,20 +42,24 @@ export async function updateSession(request: NextRequest) {
   } = await supabase.auth.getUser();
 
   const { pathname } = request.nextUrl;
+  const isServerMutation =
+    request.method !== "GET" && request.method !== "HEAD";
   const isAuthPage =
     pathname === "/sign-in" ||
     pathname === "/sign-up" ||
     pathname === "/forgot-password" ||
     pathname === "/";
 
-  if (!user && !isPublicPath(pathname)) {
+  if (!user && !isPublicPath(pathname) && !isServerMutation) {
     const redirect = request.nextUrl.clone();
     redirect.pathname = "/sign-in";
     redirect.searchParams.set("next", pathname);
     return NextResponse.redirect(redirect);
   }
 
-  if (user && isAuthPage) {
+  // Do not redirect Server Action POSTs. That returns HTML instead of an
+  // action result and surfaces "An unexpected response was received from the server."
+  if (user && isAuthPage && !isServerMutation) {
     const redirect = request.nextUrl.clone();
     redirect.pathname = "/dashboard";
     redirect.search = "";
