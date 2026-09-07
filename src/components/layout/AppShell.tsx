@@ -31,7 +31,9 @@ export function AppShell({
     <div className="min-h-dvh bg-[#fff8f8]">
       <div className="mx-auto flex min-h-dvh max-w-6xl">
         <aside className="hidden w-60 shrink-0 flex-col border-r border-splits-line bg-white px-5 py-6 md:flex">
-          <Logo className="text-2xl" />
+          <Link href="/dashboard" aria-label="Go to dashboard" className="w-fit">
+            <Logo className="text-2xl" />
+          </Link>
           <nav className="mt-8 space-y-1">
             {nav.map((item) => {
               const active =
@@ -67,7 +69,9 @@ export function AppShell({
           <header
             className={`flex items-center justify-between px-4 pb-2 pt-[max(1rem,env(safe-area-inset-top))] md:hidden ${focusMode ? "hidden" : ""}`}
           >
-            <Logo className="text-xl" />
+            <Link href="/dashboard" aria-label="Go to dashboard" className="w-fit">
+              <Logo className="text-xl" />
+            </Link>
             <Link href="/profile" aria-label="Open profile" className="rounded-full">
               <Avatar name={name} id={userId} src={avatarUrl} size="sm" />
             </Link>

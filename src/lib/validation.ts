@@ -10,15 +10,17 @@ export const usernameSchema = z
     "Use letters, numbers, spaces, or underscores.",
   );
 
+export const passwordSchema = z
+  .string()
+  .min(8, "Use at least 8 characters.")
+  .regex(/[A-Za-z]/, "Include at least one letter.")
+  .regex(/[0-9]/, "Include at least one number.");
+
 export const signUpSchema = z
   .object({
     username: usernameSchema,
     email: z.email("Enter a valid email address."),
-    password: z
-      .string()
-      .min(8, "Use at least 8 characters.")
-      .regex(/[A-Za-z]/, "Include at least one letter.")
-      .regex(/[0-9]/, "Include at least one number."),
+    password: passwordSchema,
     confirmPassword: z.string(),
   })
   .refine((value) => value.password === value.confirmPassword, {

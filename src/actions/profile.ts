@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
 import { friendlyError, type ActionResult } from "@/lib/errors";
 import { firstZodError, usernameSchema } from "@/lib/validation";
@@ -58,5 +59,45 @@ export async function updateUsernameAction(
     return { ok: true, data: undefined };
   } catch (error) {
     return { ok: false, error: friendlyError(error, "Could not update your username.") };
+  }
+}
+
+export async function updateAvatarUrlAction(
+  path: string,
+): Promise<ActionResult> {
+  try {
+    const parsed = z
+      .string()
+      .regex(
+        /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\.(jpg|png|webp)$/i,
+      )
+      .safeParse(path);
+    if (!parsed.success) {
+      return { ok: false, error: "Could not save that photo." };
+    }
+
+    const supabase = await createClient();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    if (!user) return { ok: false, error: "Please sign in to continue." };
+    if (!parsed.data.toLowerCase().startsWith(`${user.id.toLowerCase()}/`)) {
+      return { ok: false, error: "Could not save that photo." };
+    }
+
+    const { data } = supabase.storage.from("avatars").getPublicUrl(parsed.data);
+    const { error } = await supabase
+      .from("profiles")
+      .update({ avatar_url: data.publicUrl })
+      .eq("id", user.id);
+
+    if (error) throw error;
+
+    revalidatePath("/profile");
+    revalidatePath("/dashboard");
+    revalidatePath("/", "layout");
+    return { ok: true, data: undefined };
+  } catch (error) {
+    return { ok: false, error: friendlyError(error, "Could not update your photo.") };
   }
 }
