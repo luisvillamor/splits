@@ -1,5 +1,4 @@
 import { Logo } from "@/components/brand/Logo";
-import { LVMark } from "@/components/brand/LVMark";
 import { Wave } from "@/components/brand/Wave";
 import type { ReactNode } from "react";
 
@@ -13,20 +12,21 @@ export function AuthShell({
   return (
     <div className="min-h-dvh bg-white">
       <main className="relative mx-auto flex min-h-dvh w-full max-w-[430px] flex-col overflow-hidden bg-white">
-        <div className="relative h-[32dvh] min-h-[200px] max-h-[280px] shrink-0 bg-splits-red">
-          <Logo
-            light
-            className="absolute right-3 top-[40%] text-[72px] leading-none"
-            style={{ writingMode: "vertical-rl", transform: "rotate(180deg)" }}
-          />
-          <Wave className="absolute inset-x-0 bottom-0 h-[72px]" />
+        <div className="relative h-[44dvh] min-h-[300px] max-h-[390px] shrink-0 overflow-hidden bg-splits-red">
+          <div className="absolute right-0 top-[66%] h-20 w-20 -translate-y-1/2">
+            <Logo
+              light
+              className="absolute left-1/2 top-1/2 whitespace-nowrap text-[80px] leading-none tracking-[-0.04em]"
+              style={{ transform: "translate(-50%, -50%) rotate(270deg)" }}
+            />
+          </div>
+          <Wave className="pointer-events-none absolute inset-x-0 bottom-0 z-10 h-[108px]" />
         </div>
-        <section className="relative flex flex-1 flex-col bg-white px-8 pb-8 pt-0">
+        <section className="relative z-10 flex flex-1 flex-col bg-white px-8 pb-8 pt-1">
           <h1 className="text-[30px] font-extrabold leading-none text-splits-red">
             {title}
           </h1>
           <div className="mt-6">{children}</div>
-          <LVMark />
         </section>
       </main>
     </div>

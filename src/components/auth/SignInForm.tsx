@@ -8,6 +8,7 @@ import { AuthShell } from "@/components/auth/AuthShell";
 import { SocialAuth } from "@/components/auth/SocialAuth";
 import { Button } from "@/components/ui/Button";
 import { TextField } from "@/components/ui/TextField";
+import { setRememberPreference } from "@/lib/auth/remember";
 import { friendlyError } from "@/lib/errors";
 import { createClient } from "@/lib/supabase/client";
 import { firstZodError, signInSchema } from "@/lib/validation";
@@ -19,6 +20,7 @@ export function SignInForm() {
   const [error, setError] = useState<string | null>(null);
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(false);
+  const [remember, setRemember] = useState(true);
 
   async function onSubmit(formData: FormData) {
     setError(null);
@@ -45,6 +47,7 @@ export function SignInForm() {
         password: parsed.data.password,
       });
       if (signInError) throw signInError;
+      setRememberPreference(remember);
       router.replace(next);
       router.refresh();
     } catch (err) {
@@ -77,7 +80,17 @@ export function SignInForm() {
             required
             error={fieldErrors.password}
           />
-          <div className="mt-2 text-right">
+          <div className="mt-3 flex items-center justify-between gap-3">
+            <label className="flex cursor-pointer items-center gap-2 text-[13px] font-medium text-splits-red">
+              <input
+                type="checkbox"
+                name="remember"
+                checked={remember}
+                onChange={(event) => setRemember(event.target.checked)}
+                className="h-4 w-4 rounded border-[#c8c8c8] accent-splits-red"
+              />
+              Remember me
+            </label>
             <Link href="/forgot-password" className="text-[13px] font-medium text-splits-red">
               Forgot Password?
             </Link>
