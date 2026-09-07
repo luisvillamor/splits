@@ -35,11 +35,17 @@ export default async function DashboardPage() {
       </header>
 
       <div className="grid gap-3 sm:grid-cols-2">
-        <Link href="/groups/new">
+        <Link href="/groups/new" className="block">
           <Button>Create a Group</Button>
+          <p className="mt-2 text-center text-sm text-splits-muted">
+            Your friend circle. Permanent.
+          </p>
         </Link>
-        <Link href={groups[0] ? `/groups/${groups[0].id}/splits/new` : "/groups/new"}>
+        <Link href="/splits/new" className="block">
           <Button variant="secondary">New Split</Button>
+          <p className="mt-2 text-center text-sm text-splits-muted">
+            One night out, inside a group.
+          </p>
         </Link>
       </div>
 

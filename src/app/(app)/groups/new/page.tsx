@@ -31,7 +31,7 @@ export default function NewGroupPage() {
         whenever you go out.
       </p>
       <form action={onSubmit} className="space-y-4 rounded-[28px] bg-white p-5">
-        <TextField label="Group name" name="name" placeholder="Boiz" required />
+        <TextField label="Group name" name="name" placeholder="Group name" required />
         {error ? <p className="text-sm text-splits-red">{error}</p> : null}
         <Button type="submit" disabled={loading}>
           {loading ? "Creating…" : "Create Group"}

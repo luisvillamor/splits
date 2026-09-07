@@ -20,7 +20,11 @@ export function friendlyError(error: unknown, fallback: string) {
   if (lower.includes("sign in before joining")) {
     return "Sign in first, then use the invite link again.";
   }
-  if (lower.includes("row-level security") || lower.includes("rls")) {
+  if (
+    lower.includes("row-level security") ||
+    lower.includes("rls") ||
+    lower.includes("permission denied")
+  ) {
     return "You don't have permission to do that.";
   }
   if (lower.includes("network") || lower.includes("fetch")) {

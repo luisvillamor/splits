@@ -30,31 +30,47 @@ export async function createGroupAction(
     }
 
     const { supabase, user } = await requireUser();
-    const { data, error } = await supabase
-      .from("groups")
-      .insert({
-        name: parsed.data.name,
-        creator_id: user.id,
-        invite_code: randomInviteCode(),
-      })
-      .select("id")
-      .single();
+    const { data, error } = await supabase.rpc("create_group", {
+      _name: parsed.data.name,
+    });
 
-    if (error || !data) {
-      throw error ?? new Error("Could not create the group.");
+    if (!error && data) {
+      revalidatePath("/dashboard");
+      revalidatePath("/groups");
+      return { ok: true, data: { id: data as string } };
     }
 
+    const rpcMissing =
+      error?.code === "PGRST202" ||
+      error?.message?.toLowerCase().includes("create_group");
+
+    if (error && !rpcMissing) {
+      throw error;
+    }
+
+    // Fallback if the create_group SQL has not been run yet.
+    // Do not .select() the new row: SELECT RLS requires membership first.
+    const groupId = crypto.randomUUID();
+    const { error: insertError } = await supabase.from("groups").insert({
+      id: groupId,
+      name: parsed.data.name,
+      creator_id: user.id,
+      invite_code: randomInviteCode(),
+    });
+
+    if (insertError) throw insertError;
+
     const { error: memberError } = await supabase.from("group_members").insert({
-      group_id: data.id,
+      group_id: groupId,
       user_id: user.id,
       role: "owner",
     });
 
-    if (memberError) throw memberError;
+    if (memberError && memberError.code !== "23505") throw memberError;
 
     revalidatePath("/dashboard");
     revalidatePath("/groups");
-    return { ok: true, data: { id: data.id } };
+    return { ok: true, data: { id: groupId } };
   } catch (error) {
     return { ok: false, error: friendlyError(error, "Could not create the group.") };
   }
