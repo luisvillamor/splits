@@ -17,7 +17,12 @@ export function SignInForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const next = searchParams.get("next") || "/dashboard";
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(() => {
+    const authError = searchParams.get("error");
+    if (authError === "auth") return "Google sign-in failed. Please try again.";
+    if (authError) return authError;
+    return null;
+  });
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(false);
   const [remember, setRemember] = useState(true);

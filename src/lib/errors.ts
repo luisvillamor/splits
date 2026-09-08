@@ -30,8 +30,15 @@ export function friendlyError(error: unknown, fallback: string) {
   if (lower.includes("network") || lower.includes("fetch")) {
     return "Network issue. Check your connection and try again.";
   }
-  if (lower.includes("jwt") || lower.includes("auth")) {
+  if (lower.includes("jwt") || lower.includes("session expired")) {
     return "Your session expired. Please sign in again.";
+  }
+  if (
+    lower.includes("unsupported provider") ||
+    lower.includes("provider is not enabled") ||
+    lower.includes("validation_failed")
+  ) {
+    return "Google sign-in is not enabled yet. Turn on the Google provider in Supabase Auth.";
   }
 
   if (message && message.length < 140 && !lower.includes("violates")) {

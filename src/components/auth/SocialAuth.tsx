@@ -10,18 +10,23 @@ export function SocialAuth({
   onError,
 }: {
   next?: string;
-  onError: (message: string) => void;
+  onError: (message: string | null) => void;
 }) {
   const [googleLoading, setGoogleLoading] = useState(false);
 
   async function onGoogle() {
     setGoogleLoading(true);
+    onError(null);
     try {
       const supabase = createClient();
       const { error } = await supabase.auth.signInWithOAuth({
         provider: "google",
         options: {
           redirectTo: `${window.location.origin}/auth/callback?next=${encodeURIComponent(next)}`,
+          queryParams: {
+            access_type: "offline",
+            prompt: "select_account",
+          },
         },
       });
       if (error) throw error;
@@ -38,17 +43,15 @@ export function SocialAuth({
         <span className="text-sm">or</span>
         <span className="h-px flex-1 border-t border-dashed border-[#cfcfcf]" />
       </div>
-      <div className="mt-5 flex justify-center">
-        <button
-          type="button"
-          onClick={onGoogle}
-          disabled={googleLoading}
-          className="flex h-11 w-11 items-center justify-center"
-          aria-label="Continue with Google"
-        >
-          <GoogleIcon />
-        </button>
-      </div>
+      <button
+        type="button"
+        onClick={onGoogle}
+        disabled={googleLoading}
+        className="mt-5 inline-flex h-[48px] w-full items-center justify-center gap-3 rounded-full border border-splits-line bg-white text-[16px] font-medium text-splits-ink transition active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-60"
+      >
+        <GoogleIcon className="h-5 w-5" />
+        {googleLoading ? "Connecting to Google…" : "Continue with Google"}
+      </button>
     </div>
   );
 }
